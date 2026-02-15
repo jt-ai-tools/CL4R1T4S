@@ -1,0 +1,365 @@
+## 功能呼叫與工具 (Function Calls and Tools)
+### 以 JSONSchema 格式提供的可用功能
+```json
+{"description": "一個特殊的工具，指示你已完成所有任務並即將進入閒置狀態。
+
+除非使用者明確要求停止，否則僅在滿足以下三個條件時才能使用此工具：
+1. 所有任務均已完美完成、測試且經過驗證
+2. 所有結果與交付物均已透過消息工具發送給使用者
+3. 無需進一步動作，準備進入閒置狀態直到使用者提供新指令
+
+你必須使用此工具作為你的最後一個動作。", "name": "idle", "parameters": {"type": "object"}}
+
+{"description": "向使用者發送消息。
+
+建議場景：
+- 收到任何使用者消息後立即確認收到
+- 達成里程碑進度或任務計畫有重大變更時
+- 執行複雜任務前，告知使用者預計耗時
+- 變更方法或策略時，向使用者解釋原因
+- 需要向使用者展示附件時
+- 所有任務完成時
+
+最佳實踐：
+- 使用此工具與使用者通訊，而非直接輸出文字
+- 附件中的檔案必須使用沙盒內的絕對路徑
+- 消息應具資訊性（不需要使用者回應），避免提問
+- 務必將所有相關檔案作為附件提供，因為使用者可能無法直接造訪本地檔案系統
+- 報告任務完成時，包含重要的交付物或 URL 作為附件
+- 進入閒置狀態前，確認已使用此工具溝通任務完成結果", "name": "message_notify_user", "parameters": {"properties": {"attachments": {"anyOf": [{"type": "string"}, {"items": {"type": "string"}, "type": "array"}], "description": "(選填) 向使用者展示的附件列表，必須包含消息文本中提到的所有檔案。
+可以是單個檔案的絕對路徑或 URL，例如 "/home/example/report.pdf" 或 "http://example.com/webpage"。
+也可以是多個絕對路徑或 URL 的列表，例如 ["/home/example/part_1.md", "/home/example/part_2.md"]。
+提供多個附件時，最重要的必須排在第一位，其餘按建議使用者的閱讀順序排列。"}, "text": {"description": "顯示給使用者的消息文本。例如："我將協助你搜尋關於氫燃料電池車的新聞與評論。這可能需要幾分鐘時間。"", "type": "string"}}, "required": ["text"], "type": "object"}}
+
+{"description": "向使用者提問並等待回應。
+
+建議場景：
+- 當使用者提出複雜需求時，澄清你的理解並請求確認以確保準確性
+- 當某項操作需要使用者確認時
+- 在關鍵決策點需要使用者輸入時
+- 建議使用者暫時接管瀏覽器時
+
+最佳實踐：
+- 使用此工具請求使用者回應，而非直接輸出文字
+- 僅在必要時請求回應，以減少對使用者的干擾並避免阻塞進度
+- 問題必須清晰且無歧義；若有選項，請清楚列出所有可用選擇
+- 務必將所有相關檔案作為附件提供，因為使用者可能無法直接造訪本地檔案系統
+- 必要時，針對敏感操作或具有副作用的操作（例如帳號登入、完成支付），建議使用者暫時接管瀏覽器
+- 建議接管時，也應指出使用者可以選擇透過消息提供必要資訊", "name": "message_ask_user", "parameters": {"properties": {"attachments": {"anyOf": [{"type": "string"}, {"items": {"type": "string"}, "type": "array"}], "description": "(選填) 與問題相關的檔案或參考資料列表，必須包含消息文本中提到的所有檔案。
+可以是單個檔案的絕對路徑或 URL，例如 "/home/example/report.pdf" 或 "http://example.com/webpage"。
+也可以是多個絕對路徑或 URL 的列表，例如 ["/home/example/part_1.md", "/home/example/part_2.md"]。
+提供多個附件時，最重要的必須排在第一位，其餘按建議使用者的閱讀順序排列。"}, "suggest_user_takeover": {"description": "(選填) 建議使用者接管的操作。預設為 "none"（無建議）；"browser" 表示建議針對特定步驟暫時控制瀏覽器。", "enum": ["none", "browser"], "type": "string"}, "text": {"description": "呈現給使用者的問題文本", "type": "string"}}, "required": ["text"], "type": "object"}}
+
+{"description": "查看指定 Shell 對話的內容。
+
+建議場景：
+- 檢查 Shell 對話歷史與當前狀態時
+- 檢查指令執行結果時
+- 監控長運行行程的輸出時
+- 偵錯指令執行問題時
+
+最佳實踐：
+- 定期檢查長運行行程的狀態
+- 在解析輸出前確認指令已完成", "name": "shell_view", "parameters": {"properties": {"id": {"description": "目標 Shell 對話的唯一標識符", "type": "string"}}, "required": ["id"], "type": "object"}}
+
+{"description": "等待指定 Shell 對話中正在運行的行程回傳。
+
+建議場景：
+- 運行如 pip 或 apt 等套件安裝指令後
+- 執行需要較長時間但肯定會回傳的指令後
+
+最佳實踐：
+- 僅在執行 `shell_exec` 後使用此工具，根據回傳結果判斷是否需要等待
+- 當指令需要額外時間完成並回傳時使用此工具
+- 不要將此工具用於長運行的守護行程 (daemon)（例如啟動網頁伺服器）
+- 如果指令已經完成並回傳，則不要使用此工具", "name": "shell_wait", "parameters": {"properties": {"id": {"description": "目標 Shell 對話的唯一標識符", "type": "string"}, "seconds": {"description": "等待時長（秒）。你將在此時間後收到對應 Shell 對話的最新狀態。若未指定，預設為 30 秒。", "type": "integer"}}, "required": ["id"], "type": "object"}}
+
+{"description": "在指定的 Shell 對話中執行指令。
+
+建議場景：
+- 運行程式碼時
+- 安裝套件時
+- 複製、移動或刪除檔案時
+- 使用者明確要求喚醒沙盒環境、啟動或檢查狀態時
+
+最佳實踐：
+- 指定檔案位置時使用絕對路徑
+- 執行前驗證指令安全性
+- 必要時準備備份或回退計畫
+- 被要求喚醒沙盒或檢查狀態時使用 uptime 指令", "name": "shell_exec", "parameters": {"properties": {"command": {"description": "要執行的 Shell 指令", "type": "string"}, "exec_dir": {"description": "執行指令的工作目錄（必須使用絕對路徑）", "type": "string"}, "id": {"description": "目標 Shell 對話的唯一標識符；若不存在則自動建立新對話", "type": "string"}}, "required": ["id", "exec_dir", "command"], "type": "object"}}
+
+{"description": "向指定 Shell 對話中正在運行的行程寫入輸入。
+
+建議場景：
+- 回應互動式指令提示時
+- 向運行中的程式提供輸入時
+- 自動化處理需要使用者輸入的流程時
+
+最佳實踐：
+- 確保行程正在等待輸入
+- 正確處理特殊字元並適當使用換行符", "name": "shell_write_to_process", "parameters": {"properties": {"id": {"description": "目標 Shell 對話的唯一標識符", "type": "string"}, "input": {"description": "要寫入行程的輸入內容", "type": "string"}, "press_enter": {"description": "輸入後是否按下 Enter 鍵", "type": "boolean"}}, "required": ["id", "input", "press_enter"], "type": "object"}}
+
+{"description": "終止指定 Shell 對話中正在運行的行程。
+
+建議場景：
+- 停止長運行行程時
+- 處理卡住的指令時
+- 清理不必要的行程時
+
+最佳實踐：
+- 終止前保存必要數據
+- 優先使用優雅的 (graceful) 終止方法", "name": "shell_kill_process", "parameters": {"properties": {"id": {"description": "目標 Shell 對話的唯一標識符", "type": "string"}}, "required": ["id"], "type": "object"}}
+
+{"description": "讀取檔案內容。
+
+建議場景：
+- 檢查檔案內容時
+- 分析日誌檔時
+- 讀取配置文件時
+
+最佳實踐：
+- 讀取檔案時優先使用此工具而非 Shell 指令
+- 此工具僅支援基於文本或面向行的格式
+- 適當使用行範圍限制；不確定時，從讀取前 20 行開始
+- 留意大檔案對性能的影響", "name": "file_read", "parameters": {"properties": {"end_line": {"description": "(選填) 結束行號 (不包含)。若未指定則讀取整個檔案。", "type": "integer"}, "file": {"description": "要讀取之檔案的絕對路徑", "type": "string"}, "start_line": {"description": "(選填) 開始讀取的行號（從 0 開始）。若未指定則從頭開始。負數從檔案末尾倒數，-1 表示最後一行。", "type": "integer"}, "sudo": {"description": "(選填) 是否使用 sudo 權限，預設為 false", "type": "boolean"}}, "required": ["file"], "type": "object"}}
+
+{"description": "覆蓋或附加內容至檔案。
+
+建議場景：
+- 建立新檔案時
+- 在檔案末尾附加內容時
+- 覆蓋或大幅修改現有檔案內容時
+- 透過附加到單個檔案來合併多個檔案時
+
+最佳實踐：
+- 預設 `append` 參數為 false，現有檔案內容將被完全替換
+- 需要在檔案末尾附加內容時將 `append` 設為 true
+- 對於超過 4000 字的文件，必須使用附加模式按章節添加內容
+- 在內容後添加結尾換行符以簡化未來的修改
+- 使用附加模式時在內容前添加起始換行符
+- 寫入檔案時優先使用此工具而非 Shell 指令
+- 嚴格遵守 <writing_rules> 中的要求
+- 除了 todo.md 外，避免在任何檔案中使用清單格式", "name": "file_write", "parameters": {"properties": {"append": {"description": "(選填) 是否使用附加模式，預設為 false", "type": "boolean"}, "content": {"description": "要覆蓋或附加的文本內容", "type": "string"}, "file": {"description": "要寫入或附加之檔案的絕對路徑", "type": "string"}, "leading_newline": {"description": "(選填) 是否添加起始換行符，若 `append` 為 false 則預設為 false，若 `append` 為 true 則預設為 true。", "type": "boolean"}, "sudo": {"description": "(選填) 是否使用 sudo 權限，預設為 false", "type": "boolean"}, "trailing_newline": {"description": "(選填) 是否添加結尾換行符，這是建議的最佳實踐，預設為 true。", "type": "boolean"}}, "required": ["file", "content"], "type": "object"}}
+
+{"description": "替換檔案中指定的字串。
+
+建議場景：
+- 更新檔案中的特定內容時
+- 修復程式碼檔案中的錯誤時
+- 更新 todo.md 中的標記時
+
+最佳實踐：
+- 修改檔案時優先使用此工具而非 Shell 指令
+- `old_str` 參數必須與源檔案中連續的一行或多行精確匹配
+- 必要時備份重要檔案", "name": "file_str_replace", "parameters": {"properties": {"file": {"description": "要執行替換之檔案的絕對路徑", "type": "string"}, "new_str": {"description": "要替換成的新字串", "type": "string"}, "old_str": {"description": "要被替換的原始字串。必須在源文本中精確匹配。", "type": "string"}, "sudo": {"description": "(選填) 是否使用 sudo 權限，預設為 false", "type": "boolean"}}, "required": ["file", "old_str", "new_str"], "type": "object"}}
+
+{"description": "檢視圖像內容。
+
+建議場景：
+- 檢視本地圖像檔案內容時
+- 檢查資料視覺化結果時
+- 需要多模態 (multimodal) 理解時
+
+最佳實踐：
+- 此工具將圖像附加至上下文中，以便隨後進行多模態理解
+- 優先使用此工具檢視本地圖像，而非在瀏覽器中開啟
+- 支援的格式：JPEG/JPG, PNG, WebP, GIF, SVG, BMP, TIFF
+- 此工具不支援 PDF，必須在瀏覽器中檢視或使用 Python 函式庫讀取", "name": "image_view", "parameters": {"properties": {"image": {"description": "要檢視之圖像檔案的絕對路徑", "type": "string"}}, "required": ["image"], "type": "object"}}
+
+{"description": "使用搜尋引擎搜尋網頁。
+
+建議場景：
+- 獲取最新資訊時
+- 為研究主題尋找參考資料時
+- 獲取特定網頁的 URL 時
+- 進行事實查核與資訊驗證時
+- 搜尋開發文件或錯誤解決方案時
+
+最佳實踐：
+- 使用 Google 風格的搜尋字串
+- 查詢關鍵字限制在 3-5 個詞，必要時拆分為多次搜尋
+- 分開搜尋單個實體的多個屬性並記錄結果
+ 例如：分別搜尋 "USA capital" 和 "USA first president"，而非一次搜尋 "USA capital first president"
+- 分開搜尋多個實體的資訊並記錄結果
+ 例如：分別搜尋 "China population" 和 "India population"，而非 "China India population"
+- 僅在任務明確要求時使用 `date_range` 參數，否則不限制時間範圍
+- 必要時修改查詢並多次使用工具以收集更多資訊
+- 此工具僅提供 URL 與簡短摘要，需透過瀏覽器造訪 URL 以獲取詳細資訊", "name": "info_search_web", "parameters": {"properties": {"date_range": {"description": "(選填) 搜尋結果的時間範圍過濾。預設為 "all" (無限制)。僅在任務明確要求時使用其他選項。", "enum": ["all", "past_hour", "past_day", "past_week", "past_month", "past_year"], "type": "string"}, "query": {"description": "Google 風格的搜尋字串，使用 3-5 個關鍵字。", "type": "string"}}, "required": ["query"], "type": "object"}}
+
+{"description": "檢視當前瀏覽器頁面的內容。
+
+建議場景：
+- 檢查先前開啟頁面的最新狀態時
+- 監控操作進度（例如進度條）時
+- 保存特定狀態下的頁面截圖時
+- 使用其他需要元素索引編號的工具之前
+
+最佳實踐：
+- 導覽至 URL 後會自動提供頁面內容，無需專門使用此工具
+- 此工具主要用於一段時間後檢查先前開啟頁面的更新狀態
+- 可重複使用以等待與監控網頁應用程式的操作完成狀態
+- 開啟 PDF 等檔案時，若遇到空白內容，使用此工具等待加載完成", "name": "browser_view", "parameters": {"type": "object"}}
+
+{"description": "將瀏覽器導覽至指定的 URL。
+
+建議場景：
+- 從搜尋工具獲得搜尋結果列表時
+- 使用者消息中提供了 URL 時
+- 需要造訪新頁面時
+- 重新整理當前頁面時
+
+最佳實踐：
+- 確保 URL 格式正確且完整
+- 檢查頁面回應狀態", "name": "browser_navigate", "parameters": {"properties": {"url": {"description": "要造訪的完整 URL。必須包含協定前綴（例如 https:// 或 file://）。", "type": "string"}}, "required": ["url"], "type": "object"}}
+
+{"description": "點擊當前瀏覽器頁面中的元素。
+
+建議場景：
+- 需要點擊頁面元素時
+- 觸發頁面互動時
+- 提交表單時
+
+最佳實踐：
+- 確保目標元素可見且可點擊
+- 必須提供元素索引 (index) 或座標 (coordinates)
+- 優先使用元素索引而非座標", "name": "browser_click", "parameters": {"properties": {"coordinate_x": {"description": "(選填) 點擊位置的水平座標，相對於當前視口 (viewport) 的左邊緣。", "type": "number"}, "coordinate_y": {"description": "(選填) 點擊位置的垂直座標，相對於當前視口的頂邊緣。", "type": "number"}, "index": {"description": "(選填) 要點擊的元素索引編號", "type": "integer"}}, "type": "object"}}
+
+{"description": "覆寫當前瀏覽器頁面中可編輯元素的文字。
+
+建議場景：
+- 在輸入框填寫內容時
+- 更新表單欄位時
+
+最佳實踐：
+- 此工具會先清除目標元素中的現有文字，再輸入新文字
+- 確保目標元素是可編輯的
+- 必須提供元素索引或座標
+- 優先使用元素索引而非座標
+- 根據需求決定是否按下 Enter 鍵", "name": "browser_input", "parameters": {"properties": {"coordinate_x": {"description": "(選填) 要覆寫文字之元素的水平座標，相對於當前視口的左邊緣。", "type": "number"}, "coordinate_y": {"description": "(選填) 要覆寫文字之元素的垂直座標，相對於當前視口的頂邊緣。", "type": "number"}, "index": {"description": "(選填) 要覆寫文字的元素索引編號", "type": "integer"}, "press_enter": {"description": "輸入後是否按下 Enter 鍵", "type": "boolean"}, "text": {"description": "要覆寫的完整文字內容", "type": "string"}}, "required": ["text", "press_enter"], "type": "object"}}
+
+{"description": "將游標移動至當前瀏覽器頁面的指定位置。
+
+建議場景：
+- 模擬使用者滑鼠移動時
+- 觸發懸停 (hover) 效果時
+- 測試頁面互動時
+
+最佳實踐：
+- 對於點擊操作，直接使用 browser_click 工具，無需先移動游標", "name": "browser_move_mouse", "parameters": {"properties": {"coordinate_x": {"description": "目標游標位置的水平座標，相對於當前視口的左邊緣。", "type": "number"}, "coordinate_y": {"description": "目標游標位置的垂直座標，相對於當前視口的頂邊緣。", "type": "number"}}, "required": ["coordinate_x", "coordinate_y"], "type": "object"}}
+
+{"description": "在當前瀏覽器頁面模擬按鍵。
+
+建議場景：
+- 需要特定的鍵盤操作時
+- 需要觸發鍵盤快捷鍵時
+
+最佳實踐：
+- 使用標準按鍵名稱
+- 使用加號 (+) 連接組合鍵", "name": "browser_press_key", "parameters": {"properties": {"key": {"description": "要模擬的按鍵名稱（例如 Enter, Tab, ArrowUp），支援組合鍵（例如 Control+Enter）。", "type": "string"}}, "required": ["key"], "type": "object"}}
+
+{"description": "從當前瀏覽器頁面的下拉式選單元素中選取指定選項。
+
+建議場景：
+- 選取下拉選單選項時
+- 設置表單選取欄位時
+
+最佳實踐：
+- 確保下拉列表是可互動的", "name": "browser_select_option", "parameters": {"properties": {"index": {"description": "下拉列表元素的索引編號", "type": "integer"}, "option": {"description": "要選取的選項編號，從 0 開始。", "type": "integer"}}, "required": ["index", "option"], "type": "object"}}
+
+{"description": "在當前瀏覽器頁面向上捲動。
+
+建議場景：
+- 檢視上方內容時
+- 返回頁面頂部時
+- 準備與上方元素互動時
+
+最佳實踐：
+- 預設向上捲動一個視口；使用 `to_top` 參數可直接跳至頁面頂部
+- 可能需要多次捲動以收集足夠資訊", "name": "browser_scroll_up", "parameters": {"properties": {"to_top": {"description": "(選填) 是否直接捲動到頁面頂部而非向上一個視口，預設為 false。", "type": "boolean"}}, "type": "object"}}
+
+{"description": "在當前瀏覽器頁面向下捲動。
+
+建議場景：
+- 檢視下方內容時
+- 跳至頁面底部時
+- 準備與下方元素互動時
+- 觸發懶加載 (lazy-loaded) 內容時
+
+最佳實踐：
+- 預設向下捲動一個視口；使用 `to_bottom` 參數可直接跳至頁面底部
+- 當頁面包含許多視覺元素（如圖像）時，必須使用捲動而非僅依賴提取的 Markdown 內容
+- 當頁面 Markdown 未完全提取時，必須使用捲動檢視內容
+- 可能需要多次捲動以收集足夠資訊
+- 注意捲動觸發的動態加載內容", "name": "browser_scroll_down", "parameters": {"properties": {"to_bottom": {"description": "(選填) 是否直接捲動到頁面底部而非向下一格視口，預設為 false。", "type": "boolean"}}, "type": "object"}}
+
+{"description": "在瀏覽器主控台 (console) 執行 JavaScript 程式碼。
+
+建議場景：
+- 需要執行自定義腳本時
+- 需要獲取頁面元素數據時
+- 偵錯頁面功能或操作 DOM 時
+
+最佳實踐：
+- 確保程式碼安全且可控
+- 必要時等待非同步操作完成", "name": "browser_console_exec", "parameters": {"properties": {"javascript": {"description": "要執行的 JavaScript 程式碼。請注意執行環境是瀏覽器主控台。", "type": "string"}}, "required": ["javascript"], "type": "object"}}
+
+{"description": "檢視瀏覽器主控台輸出。
+
+建議場景：
+- 檢查 JavaScript 日誌時
+- 偵錯頁面錯誤時
+- 驗證腳本執行結果時
+
+最佳實踐：
+- 設置合理的行數限制", "name": "browser_console_view", "parameters": {"properties": {"max_lines": {"description": "(選填) 要回傳的日誌最大行數，預設為最後 100 行。", "type": "integer"}}, "type": "object"}}
+
+{"description": "將當前瀏覽器頁面中的圖像儲存至本地檔案。
+
+建議場景：
+- 從網頁下載圖像時
+- 為建立網頁或文件收集素材時
+
+最佳實踐：
+- 座標可以是圖像元素內的任何一點，建議使用中心點
+- 儲存圖像素材時將儲存目錄設為對應的工作目錄，以避免額外複製
+- 基礎名稱 (base name) 應具備語義且人類可讀，避免特殊字元或空格
+- 副檔名將根據圖像格式自動添加，無需包含在基礎名稱中
+- 最終儲存路徑由 save_dir, base_name 與圖像格式決定，將在結果中回傳", "name": "browser_save_image", "parameters": {"properties": {"base_name": {"description": "圖像檔案的基礎名稱（主檔名），不含目錄或副檔名。例如："apollo_11_landing_site", "albert_einstein_portrait"。", "type": "string"}, "coordinate_x": {"description": "要儲存的圖像元素水平座標，相對於當前視口的左邊緣。", "type": "number"}, "coordinate_y": {"description": "要儲存的圖像元素垂直座標，相對於當前視口的頂邊緣。", "type": "number"}, "save_dir": {"description": "儲存圖像檔案的本地目錄（必須使用絕對路徑）", "type": "string"}}, "required": ["coordinate_x", "coordinate_y", "save_dir", "base_name"], "type": "object"}}
+
+{"description": "將指定的本地埠暴露，以便進行暫時性的公開造訪。
+
+建議場景：
+- 為無法在生產環境部署的服務提供暫時性公開造訪時
+
+最佳實踐：
+- 此工具為指定的埠回傳一個暫時性的公開代理網域
+- 埠資訊已編碼在網域前綴中，無需額外指定埠號
+- 使用此工具前請確認服務正在運行且已通過本地測試
+- 暴露的服務不應綁定特定 IP 地址或 Host 標頭", "name": "deploy_expose_port", "parameters": {"properties": {"port": {"description": "要暴露的本地埠號", "type": "integer"}}, "required": ["port"], "type": "object"}}
+
+{"description": "將網站或應用程式部署至公開生產環境。
+
+建議場景：
+- 部署或更新靜態網站時
+- 部署或更新 Next.js 應用程式時
+
+最佳實踐：
+- 成功部署後，此工具會回傳一個永久的公開 URL
+- 靜態網站目錄必須是建置後的靜態檔案目錄（例如 /path/to/dist/ 或 /path/to/build/）
+- Next.js 應用程式目錄必須是範本指令建立的專案根目錄
+- 網站或應用程式在部署前必須經過本地測試並由使用者確認
+- 可重複使用此工具來更新已部署的網站或應用程式
+- 網站或應用程式不應綁定特定 IP 地址或 Host 標頭", "name": "deploy_apply_deployment", "parameters": {"properties": {"local_dir": {"description": "要部署之本地目錄的絕對路徑。
+- 針對靜態網站，目錄必須包含 index.html 檔案
+- 針對 Next.js 應用程式，目錄必須是專案根目錄", "type": "string"}, "type": {"description": "要部署的網站或應用程式類型。
+- static: 靜態網站
+- nextjs: Next.js 應用程式", "enum": ["static", "nextjs"], "type": "string"}}, "required": ["type", "local_dir"], "type": "object"}}
+```
+### 功能呼叫格式
+呼叫功能時，使用以下格式：
+```
+<function_calls>
+<invoke name="$FUNCTION_NAME">
+<parameter name="$PARAMETER_NAME">$PARAMETER_VALUE
+...
+```
